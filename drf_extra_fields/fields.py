@@ -118,7 +118,7 @@ class Base64ImageField(Base64FieldMixin, ImageField):
 
     def get_file_extension(self, filename, decoded_file):
         try:
-            from PIL import Image
+            from PIL import Image, UnidentifiedImageError
         except ImportError:
             raise ImportError("Pillow is not installed.")
         extension = imghdr.what(filename, decoded_file)
@@ -126,8 +126,12 @@ class Base64ImageField(Base64FieldMixin, ImageField):
         # Try with PIL as fallback if format not detected due
         # to bug in imghdr https://bugs.python.org/issue16512
         if extension is None:
-            image = Image.open(io.BytesIO(decoded_file))
-            extension = image.format.lower()
+            try:
+                image = Image.open(io.BytesIO(decoded_file))
+            except UnidentifiedImageError:
+                raise ValidationError(self.INVALID_FILE_MESSAGE)
+            else:
+                extension = image.format.lower()
 
         extension = "jpg" if extension == "jpeg" else extension
         return extension
